@@ -13,8 +13,19 @@ from db.tables.item_table import item
 from db.schema.item_schema import Item
 
 
+from os import environ, path
+from dotenv import load_dotenv
+
+# Load configuration values from the .env file
+basedir = path.abspath(path.dirname(__file__))
+load_dotenv(path.join(basedir, ".env"))
+
+api_key = environ.get("API_KEY")
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--update_recipe", help="Update the recipe database", action="store_true")
+parser.add_argument("--player_materials", help="Update player material list", action="store_true")
+
 args = parser.parse_args()
 parser.parse_args()
 
@@ -86,12 +97,17 @@ async def update_recipes():
         
         item_data = await check_if_item_exists(output_item_id)
 
+
         if item_data == []:
             item_data = await get_item(output_item_id)
-            print(f"Adding item: {item_data['name']}")
-            await insert_item(item_data)
+
+            if 'text' in item_data:
+                print(f"Failed, recipe_id: {recipe_id}, recipe_data: {recipe_data}")
+            else:
+                # print(f"Adding item: {item_data}")
+                await insert_item(item_data)
             
-        time.sleep(0.5)
+        # time.sleep(0.5)
         # break
 
 async def get_all_recipes():
@@ -119,6 +135,36 @@ async def get_item(id: str):
     return item_req.json()
 
 
+
+async def update_player_materials():
+    player_materials = await get_player_materials(api_key)
+    player_info = await get_player_info(api_key)
+    print(player_info)
+    #print(player_materials)
+
+
+async def get_player_materials(api_key: str):
+    headers = {"Authorization": f"Bearer {api_key}"}
+    
+    try:
+        material_req = requests.get("https://api.guildwars2.com/v2/account/materials", headers=headers)
+    except Exception as error:
+        print(f"Failed to get materials for {api_key}, error: {error}")
+        
+    return material_req.json()
+
+
+async def get_player_info(api_key: str):
+    headers = {"Authorization": f"Bearer {api_key}"}
+    
+    try:
+        material_req = requests.get("https://api.guildwars2.com/v2/account", headers=headers)
+    except Exception as error:
+        print(f"Failed to get player info for {api_key}, error: {error}")
+        
+    return material_req.json()
+        
+
 async def main():
     # Connect to DB
     await startup()
@@ -126,8 +172,12 @@ async def main():
     if args.update_recipe:
         print("Updating Recipes")    
         await update_recipes()
+        
+    if args.player_materials:
+        print("Updating Player Materials")    
+        await update_player_materials()        
     
-    print("running")
+    print("done")
 
 
 
