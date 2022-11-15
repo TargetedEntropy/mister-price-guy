@@ -77,13 +77,14 @@ async def insert_item(item: str) -> None:
 
 
 async def update_recipes():
-    recipe_ids = await get_all_recipes()
+    # recipe_ids = await get_all_recipes()
+    recipe_ids = await get_gw_api("recipes")
     for recipe_id in recipe_ids:
         recipe_data = await check_if_recipe_exists(recipe_id)
         
         
         if recipe_data == None:
-            recipe_data = await get_recipe(recipe_id)
+            recipe_data = await get_gw_api_item("recipes", recipe_id)
             await insert_recipe(recipe_data)
 
     
@@ -99,7 +100,7 @@ async def update_recipes():
 
 
         if item_data == []:
-            item_data = await get_item(output_item_id)
+            item_data = await get_gw_api_item("items", output_item_id)
 
             if 'text' in item_data:
                 print(f"Failed, recipe_id: {recipe_id}, recipe_data: {recipe_data}")
@@ -110,60 +111,37 @@ async def update_recipes():
         # time.sleep(0.5)
         # break
 
-async def get_all_recipes():
-    try:
-        total_recipes_req = requests.get("https://api.guildwars2.com/v2/recipes")
-    except Exception as error:
-        print(f"Failed to get Recipes")
-        
-    return total_recipes_req.json()
-
-async def get_recipe(id: str):
-    try:
-        recipe_req = requests.get(f"https://api.guildwars2.com/v2/recipes/{id}")
-    except Exception as error:
-        print(f"Failed to get Recipe, {id}, error: {error}")
-        
-    return recipe_req.json()
-
-async def get_item(id: str):
-    try:
-        item_req = requests.get(f"https://api.guildwars2.com/v2/items/{id}")
-    except Exception as error:
-        print(f"Failed to get Item, {id}, error: {error}")
-        
-    return item_req.json()
-
-
 
 async def update_player_materials():
-    player_materials = await get_player_materials(api_key)
-    player_info = await get_player_info(api_key)
+    player_materials = await get_gw_api("account/materials", api_key)
+    player_info = await get_gw_api("account", api_key)
     print(player_info)
     #print(player_materials)
 
 
-async def get_player_materials(api_key: str):
-    headers = {"Authorization": f"Bearer {api_key}"}
-    
+async def get_gw_api(endpoint, api_key = None):
+    if api_key:
+        headers = {"Authorization": f"Bearer {api_key}"}
+    else:
+        headers = None
+   
     try:
-        material_req = requests.get("https://api.guildwars2.com/v2/account/materials", headers=headers)
+        response = requests.get(f"https://api.guildwars2.com/v2/{endpoint}", headers=headers)
     except Exception as error:
-        print(f"Failed to get materials for {api_key}, error: {error}")
+        print(f"Failed to get gw_api, error: {error}")
         
-    return material_req.json()
+    return response.json()
+
+async def get_gw_api_item(endpoint:str, id: str):
+    try:
+        response = requests.get(f"https://api.guildwars2.com/v2/{endpoint}/{id}")
+    except Exception as error:
+        print(f"Failed to get get_api_item, {id}, error: {error}")
+        
+    return response.json()
 
 
-async def get_player_info(api_key: str):
-    headers = {"Authorization": f"Bearer {api_key}"}
-    
-    try:
-        material_req = requests.get("https://api.guildwars2.com/v2/account", headers=headers)
-    except Exception as error:
-        print(f"Failed to get player info for {api_key}, error: {error}")
-        
-    return material_req.json()
-        
+
 
 async def main():
     # Connect to DB
