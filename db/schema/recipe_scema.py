@@ -1,8 +1,6 @@
-from pydantic import BaseModel
-
+from sqlalchemy import Column, Integer, String
 from db.config import Base
 
-from sqlalchemy import Column, Integer, String, DateTime
 
 class Recipe(Base):
     __tablename__ = 'recipe'    

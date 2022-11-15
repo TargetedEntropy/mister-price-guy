@@ -1,7 +1,5 @@
 from db.config import Base
-
 from sqlalchemy import Column, Integer, String
-
 
 class Item(Base):
     __tablename__ = 'item'

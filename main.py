@@ -5,15 +5,7 @@ import asyncio
 import argparse
 import requests
 import json
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--update_recipe", help="Update the recipe database", action="store_true")
-args = parser.parse_args()
-
-
-
-parser.parse_args()
-
+import time
 
 from db.tables.recipe_table import recipe
 from db.schema.recipe_scema import Recipe
@@ -21,26 +13,24 @@ from db.tables.item_table import item
 from db.schema.item_schema import Item
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--update_recipe", help="Update the recipe database", action="store_true")
+args = parser.parse_args()
+parser.parse_args()
+
+
+
 async def startup():
     await config.database.connect()
 
 async def check_if_recipe_exists(id: str) -> bool:
-    result = session.query(Recipe).filter(Recipe.id == id).all()
-    if result == []:
-        return False
-    else:
-        return True
-    
+    return session.query(Recipe).filter(Recipe.id == id).first()
 
 async def check_if_item_exists(id: str) -> bool:
-    result = session.query(Item).filter(Item.id == id).all()
-    if result == []:
-        return False
-    else:
-        return True    
+    return session.query(Item).filter(Item.id == id).all()
 
 async def insert_recipe(recipe: str) -> None:
-    recipe = Recipe(
+    recipe_data = Recipe(
         id = recipe['id'],
         type = recipe['type'],
         output_item_id = recipe['output_item_id'],
@@ -53,18 +43,56 @@ async def insert_recipe(recipe: str) -> None:
         chat_link = recipe['chat_link'],
         guild_ingredients = json.dumps(recipe['guild_ingredients'])
     )
-    session.add(recipe)
+    session.add(recipe_data)
+    session.commit()
+
+async def insert_item(item: str) -> None:
+    item_data = Item(
+        id = item['id'],
+        description = item['description'],
+        type = item['type'],
+        level = item['level'],
+        rarity = item['rarity'],
+        vendor_value = item['vendor_value'],
+        game_types = json.dumps(item['game_types']),
+        flags = json.dumps(item['flags']),
+        restrictions = json.dumps(item['restrictions']),
+        chat_link = item['chat_link'],
+        icon = item['icon']
+
+    )
+    session.add(item_data)
     session.commit()
 
 
 async def update_recipes():
     recipe_ids = await get_all_recipes()
     for recipe_id in recipe_ids:
-        check = await check_if_recipe_exists(recipe_id)
-        if not check:
+        recipe_data = await check_if_recipe_exists(recipe_id)
+        
+        
+        if recipe_data == None:
             recipe_data = await get_recipe(recipe_id)
             await insert_recipe(recipe_data)
+
+    
+            output_item_id = recipe_data['output_item_id']
+            
+        else:
+            output_item_id = recipe_data.output_item_id
         
+            
+            
+        
+        item_data = await check_if_item_exists(output_item_id)
+
+        if item_data == []:
+            item_data = await get_item(output_item_id)
+            print(f"Adding item: {item_data['name']}")
+            await insert_item(item_data)
+            
+        time.sleep(0.5)
+        # break
 
 async def get_all_recipes():
     try:
@@ -76,11 +104,19 @@ async def get_all_recipes():
 
 async def get_recipe(id: str):
     try:
-        total_recipes_req = requests.get(f"https://api.guildwars2.com/v2/recipes/{id}")
+        recipe_req = requests.get(f"https://api.guildwars2.com/v2/recipes/{id}")
     except Exception as error:
         print(f"Failed to get Recipe, {id}, error: {error}")
         
-    return total_recipes_req.json()
+    return recipe_req.json()
+
+async def get_item(id: str):
+    try:
+        item_req = requests.get(f"https://api.guildwars2.com/v2/items/{id}")
+    except Exception as error:
+        print(f"Failed to get Item, {id}, error: {error}")
+        
+    return item_req.json()
 
 
 async def main():
