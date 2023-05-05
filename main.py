@@ -199,17 +199,58 @@ async def get_gw_api_item(endpoint: str, id: str):
     except Exception as error:
         print(f"Failed to get get_api_item, {id}, error: {error}")
 
+
     return response.json()
+
+async def get_player_materials(player_id: str):
+    item_list = []
+    player_materials = session.query(Material).filter(Material.player_id == '').all()
+    for player_material in player_materials:
+        item_list.append(player_material.item_id)
+    return item_list
+
+async def get_item_name(item_id: int):
+    req = requests.get(f"https://api.guildwars2.com/v2/items/{item_id}")
+    return req.json()['name']
+    
+
+async def get_item_price(item_id: int):
+    req = requests.get(f"https://api.guildwars2.com/v2/commerce/prices/{item_id}")
+    return req.json()
+
+top_price = 0
+top_price_item = 0
 
 from pprint import pprint
 async def check_recipes():
     recipes = session.query(Recipe).all()
+    player_materials = await get_player_materials('')
+    print(f"count:{len(recipes)}")
     for recipe in recipes:
-        #if 'cooking' in recipe.disciplines:
-            
-            pprint(vars(recipe))
-        #break
+        if 'Chef' in recipe.disciplines: # and recipe.flags == ["AutoLearned"]:
+            ingredient_len = len(json.loads(recipe.ingredients))
+            ingredient_check = 0
+            for ingredient in json.loads(recipe.ingredients):
+                if ingredient['item_id'] in player_materials:
+                    ingredient_check = ingredient_check + 1
+            if ingredient_len == ingredient_check:
+                item_price = await get_item_price(recipe.output_item_id)
 
+                try:
+                    real_price = item_price['buys']['unit_price']
+                    print(f"{real_price} {recipe.output_item_id}") 
+                    if real_price > top_price:
+                        top_price_item = recipe.output_item_id
+                except Exception as error:
+                    pass
+            #break
+    
+    item_name = await get_item_name(top_price_item)
+    print(f"Top Price Item: {item_name} / {top_price_item}")
+#            break
+        
+        # 
+        
 async def main():
     # Connect to DB
     await startup()
